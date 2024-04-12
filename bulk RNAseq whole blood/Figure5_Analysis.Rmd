@@ -1,0 +1,546 @@
+---
+title: 'Figure 5: The life-saving benefit of dexamethasone in severe COVID-19 is linked
+  to a reversal of monocyte dysregulation'
+author: "Knoll et al."
+date: "14 7 2023"
+output: html_document
+---
+
+# 1. R requirements
+
+## 1.1 Install and load packages
+
+First, we install all necessary CRAN and Bioconductor packages and load them into the R session.
+
+### Install CRAN
+```{r}
+# CRAN packages
+list.of.packages <- c("apeglm", 
+                      "factoextra",
+                      "ggbeeswarm",
+                      "ggplot2",
+                      "ggrepel",
+                      "gplots",
+                      "hexbin",
+                      "Hmisc",
+                      "openxlsx",
+                      "patchwork",
+                      "plotly",
+                      "reshape2",
+                      "scales",
+                      "tidyr",
+                      "VennDiagram",
+                      "ggExtra",
+                      "dplyr",
+                      "readxl")
+
+new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages)>0) install.packages(new.packages)
+```
+
+### Install BioConductor
+
+```{r}
+# BioconductoR packages
+list.of.bioc.packages <- c("biomaRt",
+                           "clusterProfiler",
+                           "ComplexHeatmap",
+                           "DESeq2",
+                           "DOSE",
+                           "genefilter",
+                           "ggpubr",
+                           "GSEABase",
+                           "GSVA",
+                           "IHW",
+                           "limma",
+                           "org.Mm.eg.db",
+                           "org.Hs.eg.db", 
+                           "pheatmap",
+                           "RColorBrewer",
+                           "rhdf5",
+                           "sva",
+                           "tximport",
+                           "vsn")
+
+new.packages.bioc <- list.of.bioc.packages[!(list.of.bioc.packages %in% installed.packages()[,"Package"])]
+if(length(new.packages.bioc)>0) if (!requireNamespace("BiocManager")) install.packages("BiocManager")
+BiocManager::install(new.packages.bioc, update = FALSE)
+```
+
+### Load Packages
+
+```{r load packages, results='hide',message=FALSE,warning=FALSE}
+lapply(c(list.of.packages,list.of.bioc.packages), require, character.only = TRUE)
+```
+
+## 1.2 Load functions
+
+We define functions used for analysis and visualization of our data, which are collected in the DESeq_functions.R file. 
+
+  
+```{r}
+source(file = "Figure5_Functions.R")
+```
+
+## 1.3 Load sample table and annotation
+
+Now, we read a table containing all available meta information for the samples. This table needs to be prepared beforehand from information on the sequencing tracker or provided by the experimental partners.
+
+```{r sample table import}
+singleCenter_sample_table <- readRDS("~/Scripts/singleCenter_sample_table.rds")
+multiCenter_sample_table <- readRDS("~/Scripts/multiCenter_sample_table.rds")
+
+tx_annotation <- readRDS("~/Scripts/tx_annotation.rds")
+```
+
+## 1.4 Load raw data
+
+```{r}
+singleCenter_counts <- DESeqDataSetFromMatrix(countData = readRDS("~/Scripts/singleCenter_counts.rds"),  
+                                              colData = singleCenter_sample_table, 
+                                              design = ~ condition)
+
+multiCenter_counts <- DESeqDataSetFromMatrix(countData = readRDS("~/Scripts/multiCenter_counts.rds"),  
+                                              colData = multiCenter_sample_table, 
+                                              design = ~ condition)
+```
+
+## 1.5 Load color scheme
+
+```{r}
+col_condition <- c("#9ECEAA", "#57B391", "#5B7674")
+names(col_condition) <- c("moderate_recovered", "severe_recovered", "severe_deceased")
+
+col_cohort <- c("#0176C0", "#EBEB00")
+names(col_cohort) <- c("singleCenter", "multiCenter")
+```
+
+
+# 2 Data preprocessing
+
+## 2.1 Exclude lowly-expressed genes
+
+```{r}
+#singleCenter cohort
+genes_to_keep <-  rowSums(counts(singleCenter_counts)) >= ncol(counts(singleCenter_counts))
+table(genes_to_keep)
+singleCenter_dds <- singleCenter_counts[genes_to_keep,]
+
+#multiCenter cohort
+genes_to_keep <-  rowSums(counts(multiCenter_counts)) >= ncol(counts(multiCenter_counts))
+table(genes_to_keep)
+multiCenter_dds <- multiCenter_counts[genes_to_keep,]
+```
+
+## 2.2 DESeq2 normalization
+
+```{r}
+#normalize the data
+singleCenter_dds <- DESeq(singleCenter_dds)
+multiCenter_dds <- DESeq(multiCenter_dds)
+
+#add further gene annotation
+singleCenter_norm_anno <- generate_norm_anno(dds_object = singleCenter_dds)$norm_anno
+multiCenter_norm_anno <- generate_norm_anno(dds_object = multiCenter_dds)$norm_anno
+
+```
+
+## 2.3 Variance-stabilizing transformation
+
+```{r}
+#singleCenter cohort
+singleCenter_dds_vst <- vst(singleCenter_dds, blind = TRUE)
+singleCenter_vst_anno <- as.data.frame(assay(singleCenter_dds_vst))
+singleCenter_vst_anno$GENEID <- rownames(singleCenter_vst_anno)
+singleCenter_vst_anno <- merge(singleCenter_vst_anno,
+                               singleCenter_norm_anno[,c("GENEID","SYMBOL","GENETYPE","DESCRIPTION","CHR")], 
+                               by="GENEID")
+rownames(singleCenter_vst_anno) <- singleCenter_vst_anno$GENEID
+
+#multiCenter cohort
+multiCenter_dds_vst <- vst(multiCenter_dds, blind = TRUE)
+```
+
+## 2.4 limma batch-effect removal
+
+```{r}
+#multiCenter cohort
+multiCenter_dds_vst_bc <- as.data.frame(removeBatchEffect(x=as.matrix(assay(multiCenter_dds_vst)),
+                                      batch = multiCenter_sample_table[,colnames(multiCenter_sample_table) == "site_num"],
+                                      batch2 = multiCenter_sample_table[,colnames(multiCenter_sample_table) == "season_rough_num"],
+                                      design = model.matrix(~ condition, data = multiCenter_sample_table)))
+multiCenter_vst_bc_anno <- multiCenter_dds_vst_bc
+multiCenter_vst_bc_anno$GENEID <- rownames(multiCenter_vst_bc_anno)
+multiCenter_vst_bc_anno <- merge(multiCenter_vst_bc_anno,
+                                 multiCenter_norm_anno[,c("GENEID","SYMBOL","GENETYPE","DESCRIPTION","CHR")],
+                                 by="GENEID")
+rownames(multiCenter_vst_bc_anno) <- multiCenter_vst_bc_anno$GENEID
+```
+
+# 3. Exploratory analysis
+
+## 3.1 Principle Component Analysis
+
+```{r}
+#singleCenter cohort
+plotPCA(pca_input = singleCenter_vst_anno[,colnames(singleCenter_vst_anno) %in% singleCenter_sample_table$ID],
+        pca_sample_table = singleCenter_sample_table,
+        ntop = 5000, 
+        xPC = 1, 
+        yPC = 2,
+        color = "condition",
+        anno_colour = col_condition,
+        point_size = 3,
+        title ="PCA based on top5000 most variable genes")
+
+#multiCenter cohort
+plotPCA(pca_input = multiCenter_vst_bc_anno[,colnames(multiCenter_vst_bc_anno) %in% multiCenter_sample_table$ID],
+        pca_sample_table = multiCenter_sample_table,
+        ntop = 5000, 
+        xPC = 1, 
+        yPC = 2,
+        color = "condition",
+        anno_colour = col_condition,
+        point_size = 3,
+        title ="PCA based on top5000 most variable genes")
+```
+
+## 3.2 GSVA - complete signature
+
+```{r}
+#load signatures
+sc_signature<- read_excel("~/Scripts/202300403_Dexa_scRNAseq_monocytes_DEG_outcome_deceased_vs_survived.xlsx")
+#filter for up and down
+sc_signature_deceased_up <- sc_signature[sc_signature$association == "deceased" ,]
+sc_signature_deceased_down <- sc_signature[sc_signature$association == "survived",]
+signatures <- list(deceased_up_signature = sc_signature_deceased_up$Gene,
+                   deceased_down_signature = sc_signature_deceased_down$Gene)
+
+#singleCenter cohot
+GSVA_stats(input = singleCenter_vst_anno,
+           sample_table = singleCenter_sample_table,
+           voi = "condition",
+           signatures = signatures,
+           statistics = T,
+           comparisons = list(c("severe_recovered"  ,  "moderate_recovered"),
+                              c("severe_deceased" ,   "moderate_recovered"),
+                              c("severe_deceased" ,   "severe_recovered")),
+           plot = T)
+
+#multiCenter cohort
+GSVA_stats(input = multiCenter_vst_bc_anno,
+           sample_table = multiCenter_sample_table,
+           voi = "condition",
+           signatures = signatures,
+           statistics = T,
+           comparisons = list(c("severe_recovered"  ,  "moderate_recovered"),
+                              c("severe_deceased" ,   "moderate_recovered"),
+                              c("severe_deceased" ,   "severe_recovered")),
+           plot = T)
+```
+
+## 3.3 GSVA - permutation test
+
+```{r}
+down_signature_singleCenter <- GSVA_emperical_distribution(input_list = list(singleCenter = singleCenter_vst_anno),
+                                                        sample_table_list = list(singleCenter_sample_table),
+                                                        voi = "outcome",
+                                                        signature = signatures$deceased_down_signature,
+                                                        comparisons = list(c("deceased", "survived")),
+                                                        iterations = 500,
+                                                        seed = 42)
+
+up_signature_singleCenter <- GSVA_emperical_distribution(input_list = list(singleCenter = singleCenter_vst_anno),
+                                                      sample_table_list = list(singleCenter_sample_table),
+                                                      voi = "outcome",
+                                                      signature = signatures$deceased_up_signature,
+                                                      comparisons = list(c("deceased", "survived")),
+                                                      iterations = 500,
+                                                      seed = 42)
+
+down_signature_multiCenter <- GSVA_emperical_distribution(input_list = list(multiCenter = multiCenter_vst_bc_anno),
+                                                        sample_table_list = list(multiCenter_sample_table),
+                                                        voi = "outcome",
+                                                        signature = signatures$deceased_down_signature,
+                                                        comparisons = list(c("deceased", "survived")),
+                                                        iterations = 500,
+                                                        seed = 42)
+
+up_signature_multiCenter <- GSVA_emperical_distribution(input_list = list(multiCenter = multiCenter_vst_bc_anno),
+                                                      sample_table_list = list(multiCenter_sample_table),
+                                                      voi = "outcome",
+                                                      signature = signatures$deceased_up_signature,
+                                                      comparisons = list(c("deceased", "survived")),
+                                                      iterations = 500,
+                                                      seed = 42)
+
+up_signature$singleCenter <- up_signature_singleCenter$singleCenter
+up_signature$multiCenter <- up_signature_multiCenter$multiCenter
+down_signature$singleCenter <- down_signature_singleCenter$singleCenter
+down_signature$multiCenter <- down_signature_multiCenter$multiCenter
+
+#p-values for complete signature
+p_singleCenter_up_complete <- GSVA_stats(input = singleCenter_vst_anno,
+                                    sample_table = singleCenter_sample_table,
+                                    signatures = list(signatures$deceased_up_signature),
+                                    voi = "outcome",
+                                    method = "gsva",
+                                    kcdf = "Gaussian",
+                                    statistics = TRUE,
+                                    comparisons =  list(c("deceased", "survived")))$p.adj
+label_singleCenter_up_complete <- paste0("p-value: ",count(up_signature$singleCenter$deceased_vs_survived < p_singleCenter_up_complete)/nrow(up_signature$singleCenter))
+p_singleCenter_down_complete <-GSVA_stats(input = singleCenter_vst_anno,
+                                     sample_table = singleCenter_sample_table,
+                                     signatures = list(signatures$deceased_down_signature),
+                                     voi = "outcome",
+                                     method = "gsva",
+                                     kcdf = "Gaussian",
+                                     statistics = TRUE,
+                                     comparisons =  list(c("deceased", "survived")))$p.adj
+label_singleCenter_down_complete <- paste0("p-value: ",count(down_signature$singleCenter$deceased_vs_survived < p_singleCenter_down_complete)/nrow(down_signature$singleCenter))
+p_multiCenter_up_complete <- GSVA_stats(input = multiCenter_removed_batch_anno_log,
+                                    sample_table = multiCenter_sample_table,
+                                    signatures = list(signatures$deceased_up_signature),
+                                    voi = "outcome",
+                                    method = "gsva",
+                                    kcdf = "Gaussian",
+                                    statistics = TRUE,
+                                    comparisons =  list(c("deceased", "survived")))$p.adj
+label_multiCenter_up_complete <- paste0("p-value: ",count(up_signature$multiCenter$deceased_vs_survived < p_multiCenter_up_complete)/nrow(up_signature$multiCenter))
+p_multiCenter_down_complete <- GSVA_stats(input = multiCenter_removed_batch_anno_log,
+                                      sample_table = multiCenter_sample_table,
+                                      signatures = list(signatures$deceased_down_signature),
+                                      voi = "outcome",
+                                      method = "gsva",
+                                      kcdf = "Gaussian",
+                                      statistics = TRUE,
+                                      comparisons =  list(c("deceased", "survived")))$p.adj
+label_multiCenter_down_complete <- paste0("p-value: ",count(down_signature$multiCenter$deceased_vs_survived < p_multiCenter_down_complete)/nrow(down_signature$multiCenter))
+
+#add p-value to each score
+down_signature$singleCenter$score <- sapply(down_signature$singleCenter$deceased_vs_survived, function(x){
+  (log10(x) - mean(log10(down_signature$singleCenter$deceased_vs_survived)))/sd(log10(down_signature$singleCenter$deceased_vs_survived))
+  #count(down_signature$singleCenter$deceased_vs_survived < x)/nrow(down_signature$singleCenter)
+})
+down_signature$multiCenter$score <- sapply(down_signature$multiCenter$deceased_vs_survived, function(x){
+  count(down_signature$multiCenter$deceased_vs_survived < x)/nrow(down_signature$multiCenter)
+})
+up_signature$singleCenter$score <- sapply(up_signature$singleCenter$deceased_vs_survived, function(x){
+  count(up_signature$singleCenter$deceased_vs_survived < x)/nrow(up_signature$singleCenter)
+})
+up_signature$multiCenter$score <- sapply(up_signature$multiCenter$deceased_vs_survived, function(x){
+  count(up_signature$multiCenter$deceased_vs_survived < x)/nrow(up_signature$multiCenter)
+})
+
+#visualize the distribution
+p1 <- ggplot(down_signature$singleCenter , aes(x = deceased_vs_survived)) +
+  stat_bin(fill = "grey", color = "black", binwidth = log10(1.5)) +
+  geom_density(aes(y=log10(1.5)*..count..)) +
+  geom_vline(xintercept = p_singleCenter_down_complete, linetype = "dashed", color = "firebrick") +
+  annotate(geom = 'text', label = label_singleCenter_down_complete,
+           x = p_singleCenter_down_complete, y = Inf, hjust =  1.1, vjust = 2, color = "firebrick") +
+  ggtitle("singleCenter: deceased downregualted") +
+  ylab("Frequency") + xlab("log10(adj. p-value)") +
+  ylim(c(0,125)) +
+  scale_x_log10(limits = c(10^-5,1.25)) +
+  theme_bw()
+
+p2 <- ggplot(up_signature$singleCenter , aes(x = deceased_vs_survived)) +
+  stat_bin(fill = "grey", color = "black", binwidth = log10(1.5)) +
+  geom_density(aes(y=log10(1.5)*..count..)) +
+  geom_vline(xintercept = p_singleCenter_up_complete, linetype = "dashed", color = "firebrick") +
+  annotate(geom = 'text', label = label_singleCenter_up_complete,
+           x = p_singleCenter_up_complete, y = Inf, hjust =  -0.1, vjust = 2, color = "firebrick") +
+  ggtitle("singleCenter: deceased upregualted") +
+  ylab("Frequency") + xlab("log10(adj. p-value)") +
+  ylim(c(0,125)) +
+  scale_x_log10(limits = c(10^-5,1.25)) +
+  theme_bw()
+
+p3 <- ggplot(down_signature$multiCenter, aes(x = deceased_vs_survived)) +
+  stat_bin(fill = "grey", color = "black", binwidth = log10(1.5)) +
+  geom_density(aes(y=log10(1.5)*..count..)) +
+  geom_vline(xintercept = p_multiCenter_down_complete, linetype = "dashed", color = "firebrick") +
+  annotate(geom = 'text', label = label_multiCenter_down_complete,
+           x = p_multiCenter_down_complete, y = Inf, hjust =  -0.1, vjust = 2, color = "firebrick") +
+  scale_x_log10(limits = c(10^-5,1.25)) +
+  ylim(c(0,125)) +
+  ggtitle("multiCenter: deceased downregualted") +
+  ylab("Frequency") + xlab("log10(adj. p-value)") +
+  theme_bw()
+
+p4 <- ggplot(up_signature$multiCenter , aes(x = deceased_vs_survived)) +
+  stat_bin(fill = "grey", color = "black", binwidth = log10(1.5)) +
+  geom_density(aes(y=log10(1.5)*..count..)) +
+  geom_vline(xintercept = p_multiCenter_up_complete, linetype = "dashed", color = "firebrick") +
+  annotate(geom = 'text', label = label_multiCenter_up_complete,
+           x = p_multiCenter_up_complete, y = Inf, hjust =  1.1, vjust = 2, color = "firebrick") +
+  ggtitle("multiCenter: deceased upregualted") +
+  ylab("Frequency") + xlab("log10(adj. p-value)") +
+  scale_x_log10(limits = c(10^-5,1.25)) + 
+  ylim(c(0,125)) +
+  theme_bw()
+
+p2 + p1 + p4 + p3 + plot_layout(ncol = 2)
+```
+
+## 3.4 GSVA - signature optimization
+
+```{r}
+singleCenter_outcome_parameter_scan  <- GSVA_signature_optimization(input_gsva = singleCenter_vst_anno,
+                                                               sample_table_gsva = singleCenter_sample_table,
+                                                               voi = "outcome",
+                                                               signatures = signatures,
+                                                               comparisons =  list(c("deceased"  ,  "survived")))
+
+multiCenter_outcome_parameter_scan  <- GSVA_signature_optimization(input_gsva = multiCenter_vst_bc_anno,
+                                                               sample_table_gsva = multiCenter_sample_table,
+                                                               voi = "outcome",
+                                                               signatures = signatures,
+                                                               comparisons =  list(c("deceased"  ,  "survived")))
+
+#summarize the scans from both cohorts
+#add cohort label to each data frame
+singleCenter_outcome_parameter_scan <- lapply(singleCenter_outcome_parameter_scan, function(x){
+  x$cohort <- "singleCenter"
+  x
+})
+multiCenter_outcome_parameter_scan <- lapply(multiCenter_outcome_parameter_scan, function(x){
+  x$cohort <- "multiCenter"
+  x
+})
+
+#combine data frames from the same signature
+outcome_parameter_scan <- Map(rbind,singleCenter_outcome_parameter_scan,multiCenter_outcome_parameter_scan)
+
+
+#plot results
+lapply(outcome_parameter_scan, function(x){
+  ggplot(x, aes(x = gene_n, y = deceased_vs_survived)) +
+    geom_line(data = aggregate(.~gene_n,x[,c("gene_n", "deceased_vs_survived")],mean), aes(x = gene_n, y = deceased_vs_survived)) +
+    geom_line(aes(color = cohort)) + 
+    scale_y_log10() +
+    scale_color_manual(values = col_cohort) +
+    xlim(c(10, max(x$gene_n))) +
+    ylab("log10(adj. p-value)") +
+    xlab("# of genes") +
+    theme_bw()
+})
+
+```
+
+## 3.5 GSVA - optimized signature
+
+```{r}
+#select optimized signature
+signatures <- list(deceased_up_signature = sc_signature_deceased_up[order(sc_signature_deceased_up$avg_log2FC, decreasing = T),]$Gene[1:52],
+                   deceased_down_signature = sc_signature_deceased_down[order(sc_signature_deceased_down$avg_log2FC, decreasing = T),]$Gene[1:64])
+
+#singleCenter cohot
+GSVA_stats(input = singleCenter_vst_anno,
+           sample_table = singleCenter_sample_table,
+           voi = "condition",
+           signatures = signatures,
+           statistics = T,
+           comparisons = list(c("severe_recovered"  ,  "moderate_recovered"),
+                              c("severe_deceased" ,   "moderate_recovered"),
+                              c("severe_deceased" ,   "severe_recovered")),
+           plot = T)
+
+#multiCenter cohort
+GSVA_stats(input = singleCenter_vst_anno,
+           sample_table = singleCenter_sample_table,
+           voi = "condition",
+           signatures = signatures,
+           statistics = T,
+           comparisons = list(c("severe_recovered"  ,  "moderate_recovered"),
+                              c("severe_deceased" ,   "moderate_recovered"),
+                              c("severe_deceased" ,   "severe_recovered")),
+           plot = T)
+```
+
+## 3.6 GSEA - signature edge
+
+```{r}
+#visualize the enrichment
+edge_down_signature <- GSVA_signature_edge(input_list = list(singleCenter = singleCenter_vst_anno,
+                                                             multiCenter = multiCenter_vst_bc_anno),
+                                           sample_table_list = list(singleCenter_sample_table,
+                                                                    multiCenter_sample_table),
+                                           signature = signatures$deceased_down_signature)
+
+edge_up_signature <- GSVA_signature_edge(input_list = list(singleCenter = singleCenter_vst_anno,
+                                                           multiCenter = multiCenter_vst_bc_anno),
+                                         sample_table_list = list(singleCenter_sample_table,
+                                                                  multiCenter_sample_table),
+                                         signature = signatures$deceased_up_signature)
+
+#visualize the expression of the leading gene edge
+#singleCohort
+#compute mean expression per condition
+singleCenter_mean_vst_anno <- mean_function(input = singleCenter_vst_anno, 
+                                            anno = singleCenter_sample_table,
+                                            condition = "condition")
+#define plot annotation
+plot_annotation_singleCenter <- singleCenter_sample_table[ ,c("condition"), drop = F]
+rownames(plot_annotation_singleCenter) <- NULL
+plot_annotation_singleCenter <- unique(plot_annotation_singleCenter)
+rownames(plot_annotation_singleCenter) <- plot_annotation_singleCenter$condition
+#plot the heatmap
+#deceased up
+plotHeatmap(input = singleCenter_mean_vst_anno,
+            sample_annotation = singleCenter_sample_table,
+            geneset = edge_up_signature[[1]][[2]]$leadingEdge[[1]],
+            title = "singleCenter - deceased up - gene edge",
+            show_rownames = T,
+            keyType = "Symbol",
+            method = "complete",
+            dist_method = "euclidean",
+            cluster_cols = F,
+            plot_mean = T)
+#deceased down
+plotHeatmap(input = singleCenter_mean_vst_anno,
+            sample_annotation = singleCenter_sample_table,
+            geneset = edge_up_signature[[1]][[2]]$leadingEdge[[1]],
+            title = "singleCenter - deceased up - gene edge",
+            show_rownames = T,
+            keyType = "Symbol",
+            method = "complete",
+            dist_method = "euclidean",
+            cluster_cols = F,
+            plot_mean = T)
+
+#multiCohort
+#compute mean expression per condition
+multiCenter_mean_vst_bc_anno <- mean_function(input = multiCenter_vst_bc_anno, 
+                                            anno = multiCenter_sample_table,
+                                            condition = "condition")
+#define plot annotation
+plot_annotation_multiCenter <- multiCenter_sample_table[ ,c("condition"), drop = F]
+rownames(plot_annotation_multiCenter) <- NULL
+plot_annotation_multiCenter <- unique(plot_annotation_multiCenter)
+rownames(plot_annotation_multiCenter) <- plot_annotation_multiCenter$condition
+#plot the heatmap
+#deceased up
+plotHeatmap(input = multiCenter_mean_vst_bc_anno,
+            sample_annotation = multiCenter_sample_table,
+            geneset = edge_up_signature[[1]][[2]]$leadingEdge[[1]],
+            title = "multiCenter - deceased up - gene edge",
+            show_rownames = T,
+            keyType = "Symbol",
+            method = "complete",
+            dist_method = "euclidean",
+            cluster_cols = F,
+            plot_mean = T)
+#deceased down
+plotHeatmap(input = multiCenter_mean_vst_bc_anno,
+            sample_annotation = multiCenter_sample_table,
+            geneset = edge_up_signature[[1]][[2]]$leadingEdge[[1]],
+            title = "multiCenter - deceased up - gene edge",
+            show_rownames = T,
+            keyType = "Symbol",
+            method = "complete",
+            dist_method = "euclidean",
+            cluster_cols = F,
+            plot_mean = T)
+```
