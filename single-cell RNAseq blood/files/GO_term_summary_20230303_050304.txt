@@ -1,0 +1,105 @@
+MGI Gene/Marker ID	Symbol	Name	Chr	Qualifier	Annotated Term	Context	Proteoform	Evidence	Inferred From	Reference(s)
+MGI:2385656	Acsbg1	acyl-CoA synthetase bubblegum family member 1	9		response to glucocorticoid			IMP	MGI:3851593 	J:150391 	
+MGI:105376	Adam9	a disintegrin and metallopeptidase domain 9 (meltrin gamma)	8		response to glucocorticoid			IMP		J:143682 	
+MGI:1924809	Agl	amylo-1,6-glucosidase, 4-alpha-glucanotransferase	3		response to glucocorticoid			ISO	RGD:1306376 	J:155856 	
+MGI:87964	Agtr1a	angiotensin II receptor, type 1a	13		cellular response to dexamethasone stimulus			ISO	RGD:2070 	J:155856 	
+MGI:87965	Agtr1b	angiotensin II receptor, type 1b	3		cellular response to dexamethasone stimulus			ISO	RGD:2071 	J:155856 	
+MGI:87966	Agtr2	angiotensin II receptor, type 2	X		cellular response to dexamethasone stimulus			ISO	RGD:2072 	J:155856 	
+MGI:1329033	Agxt	alanine-glyoxylate aminotransferase	1		response to glucocorticoid			ISO	RGD:2073 	J:155856 	
+MGI:2676556	Akap13	A kinase (PRKA) anchor protein 13	7		regulation of glucocorticoid mediated signaling pathway			IMP	MGI:5308769 	J:111574 	
+MGI:1353451	Aldh3a1	aldehyde dehydrogenase family 3, subfamily A1	11		response to glucocorticoid			ISO	RGD:2088 	J:155856 	
+MGI:87983	Alpl	alkaline phosphatase, liver/bone/kidney	4		response to glucocorticoid			ISO	RGD:2100 	J:155856 	
+MGI:96819	Anxa1	annexin A1	19		cellular response to glucocorticoid stimulus			IBA	PTN002574794 	J:265628 	
+MGI:96819	Anxa1	annexin A1	19		cellular response to glucocorticoid stimulus			IMP		J:81498 	
+MGI:96819	Anxa1	annexin A1	19		cellular response to glucocorticoid stimulus			ISO	RGD:2118 	J:155856 	
+MGI:96819	Anxa1	annexin A1	19		cellular response to glucocorticoid stimulus			ISO	P04083 	J:164563 	
+MGI:103201	Aqp1	aquaporin 1	6		cellular response to dexamethasone stimulus			ISO	P29972 	J:164563 	
+MGI:88068	Areg	amphiregulin	5		response to glucocorticoid			ISO	RGD:2149 	J:155856 	
+MGI:88090	Ass1	argininosuccinate synthetase 1	2		response to glucocorticoid			ISO	RGD:2163 	J:155856 	
+MGI:894278	Bche	butyrylcholinesterase	3		response to glucocorticoid			ISO	RGD:619996 	J:155856 	
+MGI:88138	Bcl2	B cell leukemia/lymphoma 2	1		response to glucocorticoid			IDA		J:16871 	
+MGI:88138	Bcl2	B cell leukemia/lymphoma 2	1		response to glucocorticoid			IMP	MGI:2156165 	J:14685 	
+MGI:88180	Bmp4	bone morphogenetic protein 4	14		cellular response to dexamethasone stimulus			ISO	RGD:2213 	J:155856 	
+MGI:101950	Calcr	calcitonin receptor	6		response to glucocorticoid			ISO	P30988 	J:164563 	
+MGI:1277950	Casp9	caspase 9	4		cellular response to dexamethasone stimulus			IDA		J:161020 	
+MGI:105925	Cdo1	cysteine dioxygenase 1, cytosolic	18		response to glucocorticoid			ISO	RGD:69262 	J:155856 	
+MGI:2135874	Cpn1	carboxypeptidase N, polypeptide 1	19		response to glucocorticoid			ISO	RGD:70931 	J:155856 	
+MGI:1924378	Crebrf	CREB3 regulatory factor	17		negative regulation of glucocorticoid mediated signaling pathway			IDA		J:192857 	
+MGI:1924378	Crebrf	CREB3 regulatory factor	17		negative regulation of glucocorticoid mediated signaling pathway			IMP		J:192857 	
+MGI:1921997	Ddit4	DNA-damage-inducible transcript 4	10		cellular response to dexamethasone stimulus			IDA		J:141655 	
+MGI:95305	Eif4e	eukaryotic translation initiation factor 4E	3		cellular response to dexamethasone stimulus			IDA		J:141655 	
+MGI:103267	Eif4ebp1	eukaryotic translation initiation factor 4E binding protein 1	8		cellular response to dexamethasone stimulus			IDA		J:141655 	
+MGI:1276116	Ep300	E1A binding protein p300	15		response to dexamethasone			ISO	RGD:620036 	J:155856 	
+MGI:3041256	Fam107a	family with sequence similarity 107, member A	14		cellular response to glucocorticoid stimulus			IMP		J:262339 	
+MGI:95484	Fas	Fas (TNF receptor superfamily member 6)	19		response to glucocorticoid			IMP	MGI:1856334 	J:26199 	
+MGI:95484	Fas	Fas (TNF receptor superfamily member 6)	19		response to glucocorticoid			IMP	MGI:1856334 	J:31852 	
+MGI:95484	Fas	Fas (TNF receptor superfamily member 6)	19		response to glucocorticoid			IMP	MGI:1856384 	J:26199 	
+MGI:1914981	Fbxo32	F-box protein 32	15		cellular response to dexamethasone stimulus			IDA		J:199171 	
+MGI:1914856	Fibin	fin bud initiation factor homolog (zebrafish)	2		response to dexamethasone			IEP		J:174073 	
+MGI:95665	Gba	glucosidase, beta, acid	3		response to dexamethasone			ISO	RGD:1589149 	J:155856 	
+MGI:107430	Gdnf	glial cell line derived neurotrophic factor	15		cellular response to dexamethasone stimulus			ISO	RGD:2677 	J:155856 	
+MGI:95710	Ghrhr	growth hormone releasing hormone receptor	6		response to glucocorticoid			ISO	Q02643 	J:164563 	
+MGI:95712	Gpr83	G protein-coupled receptor 83	9		response to glucocorticoid			IDA		J:1663 	
+MGI:2152453	Gsk3a	glycogen synthase kinase 3 alpha	7		cellular response to glucocorticoid stimulus			IGI	Q9WV60 	J:162259 	
+MGI:1861437	Gsk3b	glycogen synthase kinase 3 beta	16		cellular response to glucocorticoid stimulus			IGI	Q2NL51 	J:162259 	
+MGI:96113	Hmgb1	high mobility group box 1	5		response to glucocorticoid			IMP	MGI:3530901 	J:55880 	
+MGI:1858195	Hnrnpu	heterogeneous nuclear ribonucleoprotein U	1		cellular response to dexamethasone stimulus			ISO	RGD:620372 	J:155856 	
+MGI:1858195	Hnrnpu	heterogeneous nuclear ribonucleoprotein U	1		cellular response to glucocorticoid stimulus			ISO	Q00839 	J:164563 	
+MGI:96233	Hsd3b1	hydroxy-delta-5-steroid dehydrogenase, 3 beta- and steroid delta-isomerase 1	3		response to corticosterone			IBA	PTN008498660 	J:265628 	
+MGI:96234	Hsd3b2	hydroxy-delta-5-steroid dehydrogenase, 3 beta- and steroid delta-isomerase 2	3		response to corticosterone			IBA	PTN008498660 	J:265628 	
+MGI:96235	Hsd3b3	hydroxy-delta-5-steroid dehydrogenase, 3 beta- and steroid delta-isomerase 3	3		response to corticosterone			IBA	PTN008498660 	J:265628 	
+MGI:96236	Hsd3b4	hydroxy-delta-5-steroid dehydrogenase, 3 beta- and steroid delta-isomerase 4	3		response to corticosterone			IBA	PTN008498660 	J:265628 	
+MGI:104645	Hsd3b5	hydroxy-delta-5-steroid dehydrogenase, 3 beta- and steroid delta-isomerase 5	3		response to corticosterone			IBA	PTN008498660 	J:265628 	
+MGI:109598	Hsd3b6	hydroxy-delta-5-steroid dehydrogenase, 3 beta- and steroid delta-isomerase 6	3		response to corticosterone			IBA	PTN008498660 	J:265628 	
+MGI:3782634	Hsd3b9	hydroxy-delta-5-steroid dehydrogenase, 3 beta- and steroid delta-isomerase 9	3		response to corticosterone			IBA	PTN008498660 	J:265628 	
+MGI:99841	Htr7	5-hydroxytryptamine (serotonin) receptor 7	19		response to corticosterone			ISO	RGD:71034 	J:155856 	
+MGI:107670	Ifna	interferon alpha	4		cellular response to dexamethasone stimulus			IDA		J:173334 	
+MGI:107657	Ifnb1	interferon beta 1, fibroblast	4		cellular response to dexamethasone stimulus			IDA		J:173334 	
+MGI:96547	Il1rn	interleukin 1 receptor antagonist	2		response to glucocorticoid			ISO	P18510 	J:164563 	
+MGI:96559	Il6	interleukin 6	5		response to glucocorticoid			ISO	P05231 	J:164563 	
+MGI:96537	Il10	interleukin 10	1		response to glucocorticoid			ISO	P22301 	J:164563 	
+MGI:107364	Il17a	interleukin 17A	1		cellular response to glucocorticoid stimulus			ISO	RGD:2888 	J:155856 	
+MGI:96629	Jak2	Janus kinase 2	19		cellular response to dexamethasone stimulus			IDA		J:173334 	
+MGI:1333856	Klf9	Kruppel-like factor 9	19		cellular response to cortisol stimulus			ISO	Q13886 	J:164563 	
+MGI:96755	Lcat	lecithin cholesterol acyltransferase	8		response to glucocorticoid			ISO	RGD:2993 	J:155856 	
+MGI:1346866	Map2k1	mitogen-activated protein kinase kinase 1	9		response to glucocorticoid			ISO	RGD:70495 	J:155856 	
+MGI:3611450	Mettl21c	methyltransferase like 21C	1		cellular response to dexamethasone stimulus	happens in osteocyte		IMP		J:233233 	
+MGI:2676885	Mir21a	microRNA 21a	11		cellular response to dexamethasone stimulus			IEP		J:207419 	
+MGI:2676840	Mir155	microRNA 155	16		cellular response to dexamethasone stimulus			IEP		J:207419 	
+MGI:95691	Mstn	myostatin	1		cellular response to dexamethasone stimulus			IDA		J:199171 	
+MGI:102499	mt-Nd3	mitochondrially encoded NADH dehydrogenase 3	MT		cellular response to glucocorticoid stimulus			ISO	RGD:620557 	J:155856 	
+MGI:97275	Myod1	myogenic differentiation 1	7		cellular response to glucocorticoid stimulus			IDA		J:147457 	
+MGI:2664186	Npas4	neuronal PAS domain protein 4	19		cellular response to corticosterone stimulus			IDA		J:164698 	
+MGI:95824	Nr3c1	nuclear receptor subfamily 3, group C, member 1	18		cellular response to dexamethasone stimulus			ISO	RGD:2741 	J:155856 	
+MGI:95824	Nr3c1	nuclear receptor subfamily 3, group C, member 1	18		cellular response to dexamethasone stimulus			ISO	P04150 	J:164563 	
+MGI:95824	Nr3c1	nuclear receptor subfamily 3, group C, member 1	18		cellular response to glucocorticoid stimulus			ISO	P04150 	J:164563 	
+MGI:95824	Nr3c1	nuclear receptor subfamily 3, group C, member 1	18		glucocorticoid mediated signaling pathway			IDA		J:41618 	
+MGI:95824	Nr3c1	nuclear receptor subfamily 3, group C, member 1	18		glucocorticoid mediated signaling pathway			IEA	IPR001409 	J:72247 	
+MGI:95824	Nr3c1	nuclear receptor subfamily 3, group C, member 1	18		negative regulation of glucocorticoid mediated signaling pathway		PR:P06537-2	IDA		J:182845 	
+MGI:97479	Pappa	pregnancy-associated plasma protein A	4		response to dexamethasone			ISO	RGD:1307742 	J:155856 	
+MGI:97501	Pck1	phosphoenolpyruvate carboxykinase 1, cytosolic	2		cellular response to dexamethasone stimulus			IBA	PTN000169232 	J:265628 	
+MGI:1860456	Pck2	phosphoenolpyruvate carboxykinase 2 (mitochondrial)	14		cellular response to dexamethasone stimulus			IBA	PTN000169232 	J:265628 	
+MGI:1859170	Pdcd7	programmed cell death 7	9		response to glucocorticoid			IDA		J:53879 	
+MGI:97583	Pik3r1	phosphoinositide-3-kinase regulatory subunit 1	13		response to glucocorticoid			ISO	RGD:3329 	J:155856 	
+MGI:97744	Por	cytochrome p450 oxidoreductase	5		response to dexamethasone			ISO	RGD:68335 	J:155856 	
+MGI:104897	Rest	RE1-silencing transcription factor	5		cellular response to glucocorticoid stimulus			ISO	Q13127 	J:164563 	
+MGI:1270849	Rps6kb1	ribosomal protein S6 kinase, polypeptide 1	11		cellular response to dexamethasone stimulus			IDA		J:141655 	
+MGI:98214	Rxra	retinoid X receptor alpha	2		response to glucocorticoid			ISO	RGD:3610 	J:155856 	
+MGI:1340062	Sgk1	serum/glucocorticoid regulated kinase 1	10		glucocorticoid mediated signaling pathway			ISO	RGD:3668 	J:155856 	
+MGI:1916976	Smyd3	SET and MYND domain containing 3	1		cellular response to dexamethasone stimulus			IDA		J:199171 	
+MGI:98328	Sstr2	somatostatin receptor 2	11		cellular response to glucocorticoid stimulus			IBA	PTN002796148 	J:265628 	
+MGI:105372	Sstr4	somatostatin receptor 4	2		cellular response to glucocorticoid stimulus			IBA	PTN002796223 	J:265628 	
+MGI:894282	Sstr5	somatostatin receptor 5	17		cellular response to glucocorticoid stimulus			IBA	PTN002796239 	J:265628 	
+MGI:102896	Sult1a1	sulfotransferase family 1A, phenol-preferring, member 1	7		response to glucocorticoid			ISO	RGD:3767 	J:155856 	
+MGI:98487	Tat	tyrosine aminotransferase	8		response to glucocorticoid			ISO	RGD:3820 	J:155856 	
+MGI:103239	Tfap4	transcription factor AP4	16		cellular response to dexamethasone stimulus			IDA		J:161020 	
+MGI:98725	Tgfb1	transforming growth factor, beta 1	7		cellular response to dexamethasone stimulus			ISO	RGD:69051 	J:155856 	
+MGI:104798	Tnf	tumor necrosis factor	17		response to glucocorticoid			ISO	P01375 	J:164563 	
+MGI:2447992	Trim63	tripartite motif-containing 63	4		cellular response to dexamethasone stimulus			IDA		J:199171 	
+MGI:109240	Ube2l3	ubiquitin-conjugating enzyme E2L 3	16		cellular response to glucocorticoid stimulus			ISO	P68036 	J:164563 	
+MGI:2137698	Ugt1a6a	UDP glucuronosyltransferase 1 family, polypeptide A6A	1		cellular response to glucocorticoid stimulus			ISO	RGD:620949 	J:155856 	
+MGI:3580629	Ugt1a6b	UDP glucuronosyltransferase 1 family, polypeptide A6B	1		cellular response to glucocorticoid stimulus			ISO	RGD:620949 	J:155856 	
+MGI:99180	Zfp36	zinc finger protein 36	7		cellular response to glucocorticoid stimulus			ISO	P26651 	J:164563 	
+MGI:107946	Zfp36l1	zinc finger protein 36, C3H type-like 1	12		cellular response to glucocorticoid stimulus			ISO	Q07352 	J:164563 	
+MGI:107945	Zfp36l2	zinc finger protein 36, C3H type-like 2	17		cellular response to glucocorticoid stimulus			ISO	P47974 	J:164563 	
+
