@@ -1,7 +1,9 @@
 # Knoll et al., Cell 2024: The life-saving benefit of dexamethasone in severe COVID-19 is linked to a reversal of monocyte dysregulation
 
+<img src=“https://github.com/knollr/COVID_Dexa/blob/main/Graphical_Abstract_2024.png”>
+
 ![graphical abstract](Graphical_Abstract_2024.png)
-![graphical abstract](./Graphical_Abstract_2024.png)
+![graphical abstract](/blob/main/Graphical_Abstract_2024.png)
 ![graphical abstract]("Graphical_Abstract_2024.png")
 ![graphical abstract](COVID_Dexa/Graphical_Abstract_2024.png)
 ![graphical abstract](https://github.com/knollr/COVID_Dexa/Graphical_Abstract_2024.png)
