@@ -1,0 +1,131 @@
+# Data import
+First, the data and the covariates have to be imported.
+```{r Data import}
+# clear environment
+rm(list = ls())
+
+# Library and environment prep
+source("/home/rstudio/analysis/Code/R_projects/EPIC_Analysis/Dexa-repo/Library_and_Environment_Dexa.R")
+
+# read in the for match batch corrected M values
+GR_corrected_filtered_full <- readRDS(paste0(dataDirectory, "/rds_dexa/GR_corrected_filtered_full.rds"))
+GR_corrected_filtered_light <- readRDS(paste0(dataDirectory, "/rds_dexa/GR_corrected_filtered_light.rds"))
+
+# import DMPs with annotation, RnBeads
+DMP_CD14_CaCt_anno_gene <- readRDS(paste0(outputDirectory, "/DMP_CD14_CaCt_anno_gene"))
+
+# importing meta data as covariates
+covariates <- read_csv(paste0(dataDirectory, "/covariates_Dexa.csv"))
+
+# import EPIC annotation
+epic_annotate <- as.data.frame(readRDS(paste0(general_dataDirectory,"/epic_annotate.rds")))
+```
+
+# Linear Regression
+## Fitting the model
+First, the lineear model has to be fitted. To see differences between Non_Responder and Responder for specific cell types, I subsetted those and checked for individual differences in those cell types. 
+```{r Fit-linear-model}
+# fit the linear model for CD14
+mVals_CD14 <- mVals[,grepl("_CD14$", colnames(GR_corrected_filtered_full))]
+head(mVals_CD14[,1:5])
+bVals_CD14 <- bVals[,grepl("_CD14$", colnames(GR_corrected_filtered_full))]
+head(bVals_CD14[,1:5])
+design_CD14 <- design[1:20,]
+fit_CD14 <- lmFit(mVals_CD14, design_CD14)
+```
+
+## Contrast matrix
+A contrast matrix is created for a pairwise comparison between Non_Responder and Responder which is then fitted to the linear model. Summary of the linear model showcasing the number of down-/upregulated CpGs is printed.
+```{r contrast-matrix-and-fit}
+# create a contrast matrix for specific comparisons
+contMatrix <- makeContrasts(Non_Responder - Responder,
+                            levels=design)
+contMatrix
+
+contMatrix_CD14
+fit2_CD14 <- contrasts.fit(fit_CD14, contMatrix)
+fit2_CD14 <- eBayes(fit2_CD14)
+
+summary(decideTests(fit2_CD14))
+```
+
+# Investigate DMPs
+## Visualize differentially methylated CpGs 
+To the lists with differentially methylated positions (DMPs), the annotation data frame is joined. Furthermore, distributions of p-values of the different cell types are visualized as volcano plots. 
+```{r Differentially-methylated-positions, fig.cap = "DMP visualization"}
+DMPs_CD14 <- rownames_to_column(topTable(fit2_CD14, num=Inf), "cgid") %>%
+  left_join(epic_annotate, by = "cgid")
+head(DMPs_CD14)
+write.table(DMPs_CD14, file=paste0(outputDirectory,"/DMPs_CD14_corrected_match.csv"), sep=",", row.names=FALSE)
+```
+
+## Adding differences to p-values
+For further analysis, beta values are added to the DMP data frame of the CD14 samples. Additionally, the combined rank is generated for better comparisons. The combined rank ranks CpGs based on p-value, mean differences and log2 fold difference and keeps the worst of the three ranks. This can be used to rank DMPs.
+```{r adding-b-value-differences}
+# get the b Values in a table for Non_Responder/Responder
+bVals_Ca <- bVals_CD14[,grepl("Non_Responder", colnames(bVals_CD14))] %>%
+  as_tibble(rownames = "cgid") %>%
+  mutate(mean.Non_Responder = rowMeans(select(.,-cgid)))
+
+bVals_Ct <- bVals_CD14[,grepl("Responder", colnames(bVals_CD14))] %>%
+  as_tibble(rownames = "cgid") %>%
+  mutate(mean.Responder = rowMeans(select(.,-cgid)))
+
+# get the difference between the b values for plotting
+bVals_diff <- left_join(bVals_Ca, bVals_Ct, by = ("cgid")) %>%
+  mutate(mean.diff = mean.Non_Responder - mean.Responder) %>%
+  select(cgid, mean.Non_Responder, mean.Responder, mean.diff)
+
+# join with the DMP tables  
+DMPs_CD14_diff <- DMPs_CD14 %>%
+  left_join(bVals_diff, by = "cgid")
+head(DMPs_CD14_diff)
+
+# plotVolcano adjusted p values, CD14 mean.diff png
+png(paste0(outputDirectory, "/Dexa_png_hq/Volcano_DMPs_CD14_mean_diff.png"), width = 6, height = 5, res = 120, units = "in", family = "ArialMT")
+ggplot(DMPs_CD14_diff, aes(x = mean.diff, y = -log10(adj.P.Val))) + 
+  geom_point(pch = 21, fill = "darkgrey", color = "black", size = 2) + 
+  geom_hline(yintercept = -log10(0.05), col = "red") + 
+  scale_y_continuous(limits = c(-0.01, 2)) + 
+  ggtitle(paste0("DMPs CD14 Non_Responder vs. Responder")) +
+  xlab("mean.diff") +
+  ylab("-log10(p_val_adj)") +
+  theme(panel.grid.major = element_line("white"),
+        panel.grid.minor = element_line("white"),
+        axis.title.y = element_text(size = 8),
+        axis.text.y = element_text(size = 8),
+        axis.title.x = element_text(size = 8),
+        axis.text.x = element_text(size = 8),
+        legend.title = element_blank(),
+        legend.position = "none",
+        plot.title = element_text(face = "bold", size = 10))
+dev.off()
+```
+
+Seeing a bunch of DMPs without context is often overwhelming and unhelpful. A way to see common trends are gene ontology enrichment analysis like GO and KEGG. The classical way is using only the significant CpGs, but this does not account for the whole gene, as these have more than one CpG. Therefore, I use methylGSA which takes all CpGs and asjusts for the number of probes as a covariate. http://www.bioconductor.org/packages/devel/bioc/vignettes/methylGSA/inst/doc/methylGSA-vignette.html  
+```{r GO-and-Kegg-term}
+# using methylGSA
+# methylGSA implements logistic regression adjusting number of probes as a covariate
+
+# extracting p values
+DMPs_CD14_P_Values <- DMPs_CD14$P.Value
+
+# name vector with CpG names
+names(DMPs_CD14_P_Values) <- DMPs_CD14$cgid
+
+# all CpGs
+GO_terms_CD14_BC <- methylglm(DMPs_CD14_P_Values, array.type = "EPIC")
+GO_terms_CD14_BC
+write_csv(GO_terms_CD14_BC, paste0(outputDirectory, "/GO_terms/GO_terms_CD14_BC.csv"))
+
+# only promoters 
+GO_terms_CD14_BC_promoter <- methylglm(DMPs_CD14_P_Values, group = "promoter2", array.type = "EPIC")
+GO_terms_CD14_BC_promoter
+write_csv(GO_terms_CD14_BC_promoter, paste0(outputDirectory, "/GO_terms/GO_terms_CD14_BC_promoter.csv"))
+
+# KEGG
+KEGG_terms_CD14_BC <- methylglm(DMPs_CD14_P_Values, array.type = "EPIC", GS.type = "KEGG")
+write_csv(KEGG_terms_CD14_BC, paste0(outputDirectory, "/GO_terms/KEGG_terms_CD14_BC.csv"))
+KEGG_terms_CD14_BC_promoter <- methylglm(DMPs_CD14_P_Values, group = "promoter2", array.type = "EPIC", GS.type = "KEGG")
+write_csv(KEGG_terms_CD14_BC_promoter, paste0(outputDirectory, "/GO_terms/KEGG_terms_CD14_BC_promoter.csv"))
+```

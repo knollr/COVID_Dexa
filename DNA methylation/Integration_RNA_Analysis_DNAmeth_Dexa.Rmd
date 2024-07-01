@@ -1,0 +1,99 @@
+## Data import
+First, the libraries, the data and the covariates have to be imported. Additionally, the data from the scRNA-seq analysis performed by the Bonn group are loaded in. From the same group we got signature genes for common differentially expressed genes, Dexa signature genes and NFkB genes.
+```{r Data import}
+# clear environment
+rm(list = ls())
+
+# Library and environment prep
+source("/home/rstudio/analysis/Code/R_projects/EPIC_Analysis/Dexa-repo/Library_and_Environment_Dexa.R")
+
+# read in differential analysis for CD14, minfi
+DMPs_CD14 <- read_csv(paste0(outputDirectory,"/DMPs_CD14_corrected_match_CR.csv"))
+
+# import single-cell DE .rds
+DE_monocytes_SC2 <- readRDS(paste0(dataDirectory, "/rds_dexa/20230307_COVID_Dexa_DEG_deceased_vs_survived_monocytes_scRNAseq.RDS"))
+```
+
+## Enrichment 
+### Enrichment of differentially expressed genes from scRNA-seq data
+Visualization with bar plots showing the fraction that the DE genes from the scRNA-seq data make up in the whole EPIC, in the top 1% DMPs and in the top 0.1% DMPs respectively.
+```{r enrichment}
+# lets focus on what is covered
+DE_monocytes_SC_in_EPIC <- DE_monocytes_SC2 %>%
+  filter(Gene %in% DMPs_CD14$gene_symbol)
+# percentage of what is totally covered of scRNA DEGs on the EPIC
+DE_representation_EPIC <- length(DE_monocytes_SC_in_EPIC$Gene) / length(unique(DMPs_CD14$gene_symbol))
+# the DE are 0.01183189 of the total genes (NOT adjusted for gene length)
+
+# lets check now how this is for the top 1% DMP, whether DE genes are enriched there
+DE_representation_top_1_DMP <- length(overlap_DMP_DE_CD14$Gene) / length(unique(DMPs_CD14_top_1$gene_symbol))
+# the DE are a 0.0265428 fraction of the 1% DMP, more than double the fraction!
+
+# lets check for 0.1%
+DMP_CD14_CaCt_top_0.1 <- DMPs_CD14 %>%
+  filter(!is.na(gene_symbol)) %>%
+  arrange(combinedRank) %>%
+  head(nrow(DMPs_CD14)/2000)
+
+overlap_DMP_DE_CD14_0.1 <- inner_join(DE_monocytes_SC, DMP_CD14_CaCt_top_0.1, by = c("Gene" = "gene_symbol")) %>%
+  arrange(combinedRank) %>%
+  mutate(overlap = ifelse(regulation == "up" & mean.diff >=0, "both up",
+                          ifelse(regulation == "down" & mean.diff <0, "both down", "opposed")))
+
+DE_representation_top_0.1_DMP <- length(overlap_DMP_DE_CD14_0.1$Gene) / length(unique(DMP_CD14_CaCt_top_0.1$gene_symbol))
+# 0.02896082, even higher
+
+# plotting this
+pdf(paste0(outputDirectory, "/Dexa_png_hq/Overlap_Barplots_top1.pdf"), width = 10, height = 6, family = "ArialMT")
+data.frame(contrast = factor(c("DE_representation_EPIC", "DE_representation_top_1_DMP", "DE_representation_top_0.1_DMP"), levels = c("DE_representation_EPIC", "DE_representation_top_1_DMP", "DE_representation_top_0.1_DMP"), ordered = TRUE), fraction_of_total = c(DE_representation_EPIC, DE_representation_top_1_DMP, DE_representation_top_0.1_DMP)) %>%
+  ggplot(aes(contrast, fraction_of_total)) +
+  geom_col() +
+  labs(title = "Fraction of overlap between DE genes from scRNA-seq and EPIC subsets, based on combined rank") +
+  xlab(NULL) +
+  ylim(c(0, 0.035)) +
+  theme(plot.title = element_text(face = "bold", size = 14),
+        text = element_text(size = 12))
+dev.off()
+```
+
+### Enrichment with methylGSA
+The previous visualizations easily show the enrichment by eye-test, though they lack the statistical confirmation. For this, I used the methylRRA function from the methylGSA package. methylRRA adjusts multiple p-values of each gene by Robust Rank Aggregation. Source: https://bioconductor.org/packages/release/bioc/vignettes/methylGSA/inst/doc/methylGSA-vignette.html 
+### Volcano plots with enrichment and overlap of scRNA-seq genes
+```{r enrichment-scRNA-volcano}
+# extracting p-values as named vector
+DMPs_CD14_P_Values <- DMPs_CD14$P.Value
+names(DMPs_CD14_P_Values) <- DMPs_CD14$cgid
+
+GS.list <- list("scRNA-seq DE genes" = DE_monocytes_SC2$Gene, "all genes on EPIC" = unique(DMPs_CD14$gene_symbol))
+
+sc_enrichment_CD14 <- methylRRA(cpg.pval = DMPs_CD14_P_Values, array.type = "EPIC", method = "ORA", 
+                    GS.list = GS.list, GS.idtype = "SYMBOL", 
+                    minsize = 100, maxsize = 300)
+
+# putting this together in a volcano
+# define the colors
+mycolors <- c("#E41A1C","#fae3f1", "#6d6d6e")
+names(mycolors) <- c("sig", "not-sig", "none")
+
+# add column for different coloring of points
+genes_with_sig_CpG <- unique(DMPs_CD14$gene_symbol[DMPs_CD14$gene_symbol %in% volcano_DE_genes & DMPs_CD14$P.Value > 0.05])
+DMPs_CD14$sc_overlap <- "none"
+DMPs_CD14$sc_overlap[DMPs_CD14$gene_symbol %in% genes_with_sig_CpG & DMPs_CD14$P.Value > 0.05] <- "not-sig"
+DMPs_CD14$sc_overlap[DMPs_CD14$gene_symbol %in% genes_with_sig_CpG & DMPs_CD14$P.Value < 0.05] <- "sig"
+
+# build the plot
+sc_enrichment_volcano_all_CpGs <- ggplot(filter(DMPs_CD14, sc_overlap == "none"), aes(x = mean.diff, y = -log10(P.Value), col = sc_overlap)) + 
+  geom_point(alpha = .5) + 
+  geom_point(data = filter(DMPs_CD14, sc_overlap == "not-sig"), aes(x = mean.diff, y = -log10(P.Value), col = sc_overlap), alpha = .1) +
+  geom_point(data = filter(DMPs_CD14, sc_overlap == "sig"), aes(x = mean.diff, y = -log10(P.Value), col = sc_overlap), alpha = .8) +
+  scale_colour_manual(values = mycolors) +
+  annotate("text", x= -0.02, y = 8, label= paste0("Enrichment p-value for DE scRNA-seq genes in methylation data using RRA: ", round(sc_enrichment_CD14$pvalue, 3)), size = 6) +
+  geom_text_repel(data = filter(DMPs_CD14, sc_overlap == "sig" & adj.P.Val < 0.05), label = filter(DMPs_CD14, sc_overlap == "sig" & adj.P.Val < 0.05)$gene_symbol, show.legend = FALSE) +
+  guides(color = guide_legend(override.aes = list(size = 3, alpha = 1))) +
+  labs(y = "FDR")
+
+# save as png
+png(paste0(outputDirectory, "/Dexa_png/sc_enrichment_volcano_all_CpGs.png"), width = 800, height = 600)
+sc_enrichment_volcano_all_CpGs
+dev.off()
+```

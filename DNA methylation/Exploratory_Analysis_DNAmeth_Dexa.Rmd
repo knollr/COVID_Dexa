@@ -1,0 +1,69 @@
+# Data import
+First, the libraries, the data and the covariates have to be imported.
+```{r Data import}
+# clear environment
+rm(list = ls())
+
+# Library and environment prep
+source("/home/rstudio/analysis/Code/R_projects/EPIC_Analysis/Dexa-repo/Library_and_Environment_Dexa.R")
+
+# read in the for match corrected M values
+GR_corrected_filtered_full <- readRDS(paste0(dataDirectory, "/rds_dexa/GR_corrected_filtered_full.rds"))
+
+# importing meta data as covariates
+covariates <- read_csv(paste0(dataDirectory, "/covariates_Dexa.csv"))
+# import EPIC annotation
+epic_annotate <- as.data.frame(readRDS(paste0(general_dataDirectory,"/epic_annotate.rds")))
+```
+
+### All samples
+First, all samples are probed.
+```{r PCA-all-samples}
+pdf(paste0(outputDirectory, "/Dexa_png_hq/PCA_all_samples_disease_progression.pdf"), width = 6, height = 5, family = "ArialMT", onefile = FALSE)
+plotPCA(pca_input = GR_corrected_filtered_full, color = "Disease_Progression", pca_sample_table = covariates,
+        anno_colour = pal_Dexa, title = "PCA of all EPIC samples")
+dev.off()
+pdf(paste0(outputDirectory, "/Dexa_png_hq/PCA_all_samples_cell_type.pdf"), width = 6, height = 5, family = "ArialMT", onefile = FALSE)
+plotPCA(pca_input = GR_corrected_filtered_full, pca_sample_table = covariates, color = "Cell_Type", 
+        anno_colour = "NULL", title = "PCA of all EPIC samples")
+dev.off()
+```
+
+### Subsetting based on cell type
+Subsetting only on the cell types (CD14, CD19, CD4, CD8) will shed some better light on what factors contribute to clustering. 
+```{r PCA cell-types}
+
+contr <- PC_contribution(pca_input = GR_corrected_filtered_full, pca_sample_table = covariates, subset_cell_type = "_CD14",
+                title="PC contribution for CD14", max_PC = 6, display_numbers = TRUE)
+# save PC contribution
+pdf(paste0(outputDirectory, "/Dexa_png_hq/PC_contribution_CD14.pdf"), width = 6, height = 5, family = "ArialMT", onefile = FALSE)
+contr
+dev.off()
+
+# save PCA plot
+pdf(paste0(outputDirectory, "/Dexa_png_hq/PCA_CD14_disease_progression.pdf"), width = 6, height = 5, family = "ArialMT", onefile = FALSE)
+plotPCA(pca_input = GR_corrected_filtered_full, pca_sample_table = covariates, subset_cell_type = "CD14"
+        ,color = "Disease_Progression", anno_colour = pal_Dexa, title = "PCA of CD14+ EPIC samples")
+dev.off()
+
+plotPCA(pca_input = GR_corrected_filtered_full, pca_sample_table = covariates, subset_cell_type = "CD14", color = "Match", title = "PCA of CD14+ EPIC")
+
+# CD19
+pdf(paste0(outputDirectory, "/Dexa_png_hq/PCA_CD19_disease_progression.pdf"), width = 6, height = 5, family = "ArialMT", onefile = FALSE)
+plotPCA(pca_input = GR_corrected_filtered_full, pca_sample_table = covariates, subset_cell_type = "CD19"
+        ,color = "Disease_Progression", anno_colour = pal_Dexa, title = "PCA of CD19+ EPIC samples")
+dev.off()
+
+
+# CD4
+pdf(paste0(outputDirectory, "/Dexa_png_hq/PCA_CD4_disease_progression.pdf"), width = 6, height = 5, family = "ArialMT", onefile = FALSE)
+plotPCA(pca_input = GR_corrected_filtered_full, pca_sample_table = covariates, subset_cell_type = "CD4"
+        ,color = "Disease_Progression", anno_colour = pal_Dexa, title = "PCA of CD4+ EPIC samples")
+dev.off()
+
+# CD8
+pdf(paste0(outputDirectory, "/Dexa_png_hq/PCA_CD8_disease_progression.pdf"), width = 6, height = 5, family = "ArialMT", onefile = FALSE)
+plotPCA(pca_input = GR_corrected_filtered_full, pca_sample_table = covariates, subset_cell_type = "CD8"
+        ,color = "Disease_Progression", anno_colour = pal_Dexa, title = "PCA of CD8+ EPIC samples")
+dev.off()
+```

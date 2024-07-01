@@ -1,0 +1,290 @@
+# Data import
+First, the libraries, the data and the sample sheet have to be imported.
+```{r Data import}
+# clear environment
+rm(list = ls())
+
+# Library and environment prep
+source("/home/rstudio/analysis/Code/R_projects/EPIC_Analysis/Dexa-repo/Library_and_Environment_Dexa.R")
+
+# read in .csv sample sheet
+targets1 <- read.metharray.sheet(dataDirectory, pattern="2022.05.25_sample sheet_FK001-040.csv")
+targets2 <- read.metharray.sheet(dataDirectory, pattern="2022.07.14_sample sheet_FK041-080")
+targets <- bind_rows(targets1, targets2)
+
+# two samples had to be rerun, check Outlier_Removal_and_Repeat_Dexa.Rmd for additional info
+
+# load in the the repeated EPIC runs for those two samples
+targets_repeat <- read.metharray.sheet(dataDirectory, pattern="2022.09.29.Samplesheet.csv")
+
+targets_repeat <- targets_repeat[grep("^FK",targets_repeat$Sample_Name),]
+
+# change naming
+targets_repeat$Sample_Name <- c("FK042", "FK044")
+
+# sample paths will be replaced before loading in data
+targets[grepl("FK042", targets$Sample_Name),] <- targets_repeat[grepl("FK042", targets_repeat$Sample_Name),]
+targets[grepl("FK044", targets$Sample_Name),] <- targets_repeat[grepl("FK044", targets_repeat$Sample_Name),]
+
+# read in raw data from IDAT files
+rawidat <- read.metharray.exp(targets = targets)
+rawidat
+
+# rename samples 
+xl_with_sample_names1 <- read_excel(paste0(dataDirectory, "/2022.05.16_FK_001-040.xlsx"), sheet = "Metadata")
+xl_with_sample_names2 <- read_excel(paste0(dataDirectory, "/2022.06.09_FK_041-080.xlsx"), sheet = "Metadata")
+xl_with_sample_names <- bind_rows(xl_with_sample_names1, xl_with_sample_names2)
+
+# read in processing sheet, renaming for better handling
+xl_targets1 <- read_excel(paste0(dataDirectory, "/2022.05.22_EPIC-Array_samples_FK001-040.xlsx"), sheet = "Sheet1", skip = 5, n_max = 32) %>%
+  dplyr::select(Sample_Name = Name, Chip = "Chip Barcode No.", Position = "Position on Chip (row)", )
+
+xl_targets2 <- read_excel(paste0(dataDirectory, "/2022.05.22_EPIC-Array_samples_FK001-040.xlsx"), sheet = "Sheet2", skip = 5, n_max = 8) %>%
+  dplyr::select(Sample_Name = Name, Chip = "Chip Barcode No.", Position = "Position on Chip (row)", )
+
+xl_targets3 <- read_excel(paste0(dataDirectory, "/2022.07.12_EPIC-Array_samples_FK041-080.xlsx"), sheet = "Sheet1", skip = 5, n_max = 32) %>%
+  dplyr::select(Sample_Name = Name, Chip = "Chip Barcode No.", Position = "Position on Chip (row)", )
+
+xl_targets4 <- read_excel(paste0(dataDirectory, "/2022.07.12_EPIC-Array_samples_FK041-080.xlsx"), sheet = "Sheet2", skip = 5, n_max = 8) %>%
+  dplyr::select(Sample_Name = Name, Chip = "Chip Barcode No.", Position = "Position on Chip (row)", )
+
+xl_targets <- bind_rows(xl_targets1, xl_targets2, xl_targets3, xl_targets4)
+# putting ID together from Chip and position, as this is used as naming for idats
+# sample is extracted, as there is a titration in it
+xl_targets <- xl_targets %>%
+  mutate(Chip_ID = paste(c(xl_targets$Chip), c(xl_targets$Position), sep = "_"), 
+         Sample = str_extract(xl_targets$Sample_Name, "^.{0,7}"))
+
+targets %>%
+  mutate(idat_file_grn = paste0(basename(Basename), "_grn.idat"), 
+         idat_file_red = paste0(basename(Basename), "_Red.idat"))
+
+# join covariates and xl_targets to get a df with the covariates for testing
+covariates <- xl_with_sample_names %>%
+  inner_join(xl_targets, by = c("ID" = "Sample")) %>%
+  inner_join(targets, by = c("ID" = "Sample_Name")) %>%
+  dplyr::select(ID, Sample, Cell_Type, Disease_Progression, WHO_sampling, WHO_max, Donor_ID, Match, Sex, Age, Cell_Count, barcode = Chip_ID, Chip, Position, Basename) %>%
+  mutate(idat_file_grn = paste0(basename(Basename), "_grn.idat"), 
+         idat_file_red = paste0(basename(Basename), "_Red.idat"))
+
+# rename case and control to Non_Responder and responder, respectively
+covariates$Disease_Progression <- gsub("Case", "Non_Responder", covariates$Disease_Progression)
+covariates$Disease_Progression <- gsub("Control", "Responder", covariates$Disease_Progression)
+covariates$Sample <- gsub("Case", "Non_Responder", covariates$Sample)
+covariates$Sample <- gsub("Control", "Responder", covariates$Sample)
+covariates$Donor_ID <- gsub("Case", "Non_Responder", covariates$Donor_ID)
+covariates$Donor_ID <- gsub("Control", "Responder", covariates$Donor_ID)
+
+# rename rawidat with sample names
+targets$Basename <- covariates$Sample
+sampleNames(rawidat) <-targets$Basename
+
+# Non_Responder_CD19 showed strange behaviour, check Outlier_Removal_and_Repeat_Dexa.Rmd for additional info
+# throw Non_Responder_CD19 out and Responder_CD19 as well, as those are matched donors 
+rawidat <- rawidat[, !grepl("9_CD19$", colnames(rawidat))]
+
+
+# as well as covariates
+covariates <- covariates[!grepl("9_CD19", covariates$Sample),]
+write_csv(covariates, paste0(dataDirectory, "/covariates_Dexa.csv"))
+rawidat
+```
+
+## Annotation
+For further analysis of differentially methylated positions and regions, an annotation data frame has to be generated to put DMPs and DMRs into perspective. 
+This includes not only the annotations of the epic array positions, but integrates it with segmentation data from Abdul. 
+```{r EPIC-and-methylseekr-annotations-preparation}
+# Turn epic array annotations object into a grange (includes all existing epic array positions)
+
+# first, it needs be transformed to a df with the right format
+# need to define start and end position of a genomic range as character
+annoEPIC <- getAnnotation(IlluminaHumanMethylationEPICanno.ilm10b4.hg19)
+epic <- as_data_frame(annoEPIC) %>%
+  mutate(end = pos + 1) %>%
+  dplyr::select(chr, start = pos, end, Name, strand)
+epic$start <- as.character(epic$start)
+epic$end <- as.character(epic$end)
+
+# Now, the df is transformed into a Grange
+epic_gr<- makeGRangesFromDataFrame(epic, keep.extra.columns = TRUE, seqnames.field = "chr", start.field = "start", end.field = "end")
+
+# As a Grange, it can be used to create better annotations with the annotatePeaK() function from the ChIPseeker package
+epic_annotate <-annotatePeak(peak=epic_gr, annoDb = "org.Hs.eg.db",tssRegion = c(-3000,3000))
+saveRDS(epic_annotate, paste0(general_dataDirectory,"/epic_annotate.rds"))
+```
+
+# Data preparation
+## Quality Control
+Before any form of data analysis, the quality of the data has to be assessed. First, calculation of the detection p-values is performed. This is followed by examination of the mean detection p-values across all samples to identify any failed samples. In the end, a MINFI QC is saved as a PDF called "qcReport.pdf".
+```{r Quality-control, fig.cap = "Quality Control"}
+# Calculation of detection p-values 
+detP <- detectionP(rawidat)
+head(detP)
+
+# Visualization of mean detection p-values
+par(mfrow=c(1,2))
+par(mar=c(6,4,1,1)+.1)
+barplot(colMeans(detP), col=pal[factor(covariates$Disease_Progression)], las=2, 
+        cex.names=0.8, ylim=c(0,0.06),ylab="Mean detection p-values")
+abline(h=0.05,col="red")
+legend("topright", legend=levels(factor(covariates$Disease_Progression)), fill=pal,
+       bg="white")
+
+barplot(colMeans(detP), col=pal[factor(covariates$Disease_Progression)], las=2, 
+        cex.names=0.8, ylim=c(0,0.002))
+abline(h=0.05,col="red")
+legend("topleft", legend=levels(factor(covariates$Disease_Progression)), fill=pal, 
+       bg="white")
+
+qc <- getQC(preprocessRaw(rawidat))
+qc_bad <- as.data.frame(qc) %>%
+  mutate(meds = (qc$mMed + qc$uMed)/2) %>%
+  filter(meds < 10.5)
+covariates %>%
+  filter(Sample %in% rownames(qc_bad))
+
+pdf(paste0(outputDirectory, "/Dexa_png_hq/QC_Dexa_intensity.pdf"), width = 18, height = 12, family = "ArialMT")
+plotQC_FH(qc)
+dev.off()
+
+# plot detP to cell count
+covariates$detP <- colMeans(detP)
+
+ggplot(covariates, aes(log10(Cell_Count), log10(detP))) + 
+  geom_point() + 
+  geom_smooth(method = "lm", se = FALSE) + 
+  labs(title = "Cell counts vs mean detection p-value", x = "Cell Counts, log10", y = "Mean detection p-values, log10") + 
+  ggpubr::stat_regline_equation(aes(label =  paste(..eq.label.., ..rr.label.., sep = "~~~~")))
+```
+
+```{Minfi QC, include = FALSE}
+# Print the Minfi QC
+qcReport(rawidat, sampNames=covariates$Sample, sampGroups=covariates$Disease_Progression, 
+         pdf=paste0(outputDirectory, "/MinfiQC_all_samples.pdf"))
+```
+## Normalization
+The next step before data analysis is normalization of the data.
+This results in a GenomicRatioSet object. After creating a MethylSet object from the raw data for plotting, it is then visualized what the data looks like before and after normalization.
+```{r Normalization, fig.cap = "Before and after normalization"}
+mSetSq <- preprocessQuantile(rawidat)
+saveRDS(mSetSq, paste0(dataDirectory, "/rds_dexa/mSetSq.rds"))
+mSetRaw <- preprocessRaw(rawidat)
+par(mfrow=c(1,2))
+densityPlot(rawidat, sampGroups=covariates$Disease_Progression,main="Raw", legend=FALSE)
+legend("top", legend = levels(factor(covariates$Disease_Progression)), 
+       text.col=brewer.pal(8,"Dark2"))
+densityPlot(getBeta(mSetSq), sampGroups=covariates$Disease_Progression,
+            main="Normalized", legend=FALSE)
+legend("top", legend = levels(factor(covariates$Disease_Progression)), 
+       text.col=brewer.pal(8,"Dark2"))
+```
+# Filtering
+Looking at the unfiltered data, samples cluster according to cell type. To get a more clear view of actual differences between samples, filtering is performed to remove failed or cross-reactive probes to get a more accurate data representation. 
+Additionally, removing the sex chromosomes and SNPs from the data set allows for better differentiation and clustering according to sample differences rather than donor differences.  
+Here, I perform a full filtering, using any reported possible cross reactivity and a light filtering which is the way we used to do it and how it is done in the workflow mine is derived from (https://www.bioconductor.org/packages/devel/workflows/vignettes/methylationArrayAnalysis/inst/doc/methylationArrayAnalysis.html).
+In the end, both are saved as .rds for further analysis.
+```{r Filtering}
+# Ensure probes are in the same order in the mSetSq and detP objects 
+detP <- detP[match(featureNames(mSetSq),rownames(detP)),] 
+
+# process failed probes
+failed <- detP > 0.01
+colMeans(failed) # Fraction of failed positions per sample
+sum(rowMeans(failed)>0.5) # How many positions failed in >50% of samples?
+failed.probes <- rownames(detP[rowMeans(failed)>0.5,])
+
+# remove any probes that have failed in one or more samples
+keep <- rowSums(detP < 0.01) == ncol(mSetSq) 
+table(keep)
+
+mSetSq_filtered_full <- mSetSq[keep, ]
+mSetSq_filtered_full
+head(unique(names(keep)))
+
+# check for samples that performed poor on average
+sum(colMeans(detP) > 0.01)
+sort(colMeans(detP) > 0.01, decreasing = TRUE)
+
+# remove probes on the sex chromosomes
+keep <- !(featureNames(mSetSq_filtered_full) %in% annoEPIC$Name[annoEPIC$chr %in% 
+                                                      c("chrX","chrY")])
+table(keep)
+mSetSq_filtered_full <- mSetSq_filtered_full[keep,]
+
+# remove probes with SNPs at CpG site
+mSetSq_filtered_full <- dropLociWithSnps(mSetSq_filtered_full)
+mSetSq_filtered_full
+
+mSetSq_filtered_light <- mSetSq_filtered_full
+
+# exclude cross reactive probes
+# directory with .csv files noting cross reactive sites
+cross_dir <- "/home/rstudio/analysis/Data_s_drive/Epic/Cross_Reactive_Probes"
+
+# 450k
+## generate 'bad' probes filter
+# cross-reactive/non-specific
+cross.react <- read.csv(paste0(cross_dir, '/48639-non-specific-probes-Illumina450k.csv'), head = T, as.is = T)
+cross.react.probes <- as.character(cross.react$TargetID)
+# BOWTIE2 multi-mapped
+multi.map <- read.csv(paste0(cross_dir, '/HumanMethylation450_15017482_v.1.1_hg19_bowtie_multimap.txt'), head = F, as.is = T)
+multi.map.probes <- as.character(multi.map$V1)
+# determine unique probes
+filter.probes <- unique(c(cross.react.probes, multi.map.probes))
+## filter the matrix of beta values (beta_norm)
+## CpGs probes (IlmnID) should be rownames
+# fitler out 'bad' probes
+keep <- !(featureNames(mSetSq_filtered_full) %in% filter.probes)
+table(keep)
+mSetSq_filtered_full <- mSetSq_filtered_full[keep,]
+
+
+# EPIC
+# probes from Pidsley 2016 (EPIC)
+epic.cross1 <- read.csv(paste0(cross_dir, "/13059_2016_1066_MOESM1_ESM.csv"), head = T)
+# epic.cross2 <- read.csv(paste0(cross_dir, '/13059_2016_1066_MOESM2_ESM.csv'), head = T)
+# epic.cross3 <- read.csv(paste0(cross_dir, '/13059_2016_1066_MOESM3_ESM.csv'), head = T)
+epic.variants1 <- read.csv(paste0(cross_dir, '/13059_2016_1066_MOESM4_ESM.csv'), head = T)
+epic.variants2 <- read.csv(paste0(cross_dir, '/13059_2016_1066_MOESM5_ESM.csv'), head = T)
+epic.variants3 <- read.csv(paste0(cross_dir, '/13059_2016_1066_MOESM6_ESM.csv'), head = T)
+# additional filter probes
+epic.add.probes <- c(as.character(epic.cross1$X), as.character(epic.variants1$PROBE), as.character(epic.variants2$PROBE), 
+                     as.character(epic.variants3$PROBE))
+# final list of unique probes
+epic.add.probes <- unique(epic.add.probes)
+keep <- !(featureNames(mSetSq_filtered_full) %in% epic.add.probes)
+table(keep)
+mSetSq_filtered_full <- mSetSq_filtered_full[keep,]
+
+# old x reactive
+xReactiveProbes <- read.csv(file=paste(cross_dir, "/13059_2016_1066_MOESM1_ESM.csv",
+                                       sep="/"), stringsAsFactors=FALSE)
+keep <- !(featureNames(mSetSq_filtered_light) %in% xReactiveProbes$TargetID) # ! to take everything but what was defined in the object
+table(keep)
+
+mSetSq_filtered_light <- mSetSq_filtered_light[keep,] 
+mSetSq_filtered_full 
+mSetSq_filtered_light
+saveRDS(mSetSq_filtered_full, paste0(dataDirectory, "/rds_dexa/mSetSq_filtered_full.rds"))
+saveRDS(mSetSq_filtered_light, paste0(dataDirectory, "/rds_dexa/mSetSq_filtered_light.rds"))
+```
+
+# Correcting for matching
+Samples were matched based on comorbidities and other metadata. Correcting for this removes some variance that is inherent to human data.
+```{r match-correction}
+# correction based on matching
+match_corrected_filtered_full <- ComBat(dat = getM(mSetSq_filtered_full), batch = covariates$Match)
+
+GR_corrected_filtered_full <- makeGenomicRatioSetFromMatrix(
+ mat = match_corrected_filtered_full,
+ rownames = rownames(mSetSq_filtered_full),
+ array = "IlluminaHumanMethylationEPIC", 
+ annotation = "ilm10b4.hg19", 
+ what = ("M")
+)
+
+saveRDS(GR_corrected_filtered_full, paste0(dataDirectory, "/rds_dexa/GR_corrected_filtered_full.rds"))
+
+# a matrix with b values has to be provided for GEO submission
+write.table(as.matrix(getBeta(GR_corrected_filtered_full)), paste0(outputDirectory, "/b_values_fully_processed_Dexa.tsv"), sep = "\t", row.names = TRUE, col.names = TRUE)
+```
